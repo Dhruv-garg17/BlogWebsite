@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const API = axios.create({
   // baseURL: 'http://localhost:3000/api',
-  baseURL:'https://blogwebsite-2u5t.onrender.com/',
+  baseURL:'https://blogwebsite-2u5t.onrender.com/api',
 });
 
 // Request interceptor for adding auth token
