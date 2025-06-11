@@ -5,7 +5,11 @@ const postSchema = new mongoose.Schema({
   content: { type: String, required: true },
   topic: { type: String, required: true },
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  approved: { type: Boolean, default: false },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
   createdAt: { type: Date, default: Date.now }
 });
 

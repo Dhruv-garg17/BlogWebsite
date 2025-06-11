@@ -1,28 +1,31 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import {  Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import BlogList from './pages/BlogList';
+import Footer from './components/Footer';
 import AddPost from './pages/AddPost';
 import AdminPanel from './pages/AdminPanel';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
-import { AuthProvider } from './contexts/AuthContext';
+import '@fortawesome/fontawesome-free/css/all.min.css';
+import Home from './pages/Home';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <div id="root">
         <Navbar />
+        <main className="main-content"></main>
         <Routes>
-          <Route path="/" element={<BlogList />} />
+          <Route path="/" element={<Home />} />
           <Route path="/add-post" element={<AddPost />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        <main/>
+        <Footer/>
+        </div>
+      
   );
 }
