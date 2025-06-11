@@ -30,5 +30,31 @@ export const addPost = (data) => API.post('/posts', data);
 
 // Admin endpoints
 export const fetchPendingPosts = (page = 1) => API.get('/admin/posts/pending', { params: { page } });
-export const approvePost = (id) => API.post(`/admin/posts/${id}/approve`);
-export const rejectPost = (id) => API.delete(`/admin/posts/${id}/reject`);
+export const fetchAllPosts = (page = 1, status = '') => {
+  const params = { page };
+  if (status) params.status = status;
+  return API.get('/admin/posts/all', { params });
+};
+
+export const approvePost = (id) => API.patch(`/posts/admin/posts/${id}/approve`);
+export const rejectPost = (id) => API.delete(`/posts/admin/posts/${id}`);
+export const bulkApprovePosts = (postIds) => API.post('/posts/admin/bulk-approve', { postIds });
+export const bulkRejectPosts = (postIds) => API.post('/posts/admin/bulk-reject', { postIds });
+
+
+// Error handling interceptor
+API.interceptors.response.use(
+  response => response,
+  error => {
+    if (error.response) {
+      // Handle specific status codes
+      if (error.response.status === 401) {
+        // Handle unauthorized access
+        localStorage.removeItem('token');
+        window.location = '/login';
+      }
+      return Promise.reject(error.response.data);
+    }
+    return Promise.reject(error);
+  }
+);

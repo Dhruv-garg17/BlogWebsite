@@ -1,5 +1,12 @@
 import React, { useEffect, useState, useContext } from 'react';
-import { fetchPendingPosts, approvePost, rejectPost } from '../api/api';
+import { 
+  fetchPendingPosts, 
+  fetchAllPosts,
+  approvePost, 
+  rejectPost,
+  bulkApprovePosts,
+  bulkRejectPosts
+} from '../api/api';
 import { AuthContext } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -11,6 +18,8 @@ export default function AdminPanel() {
   const [pages, setPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [selectedPosts, setSelectedPosts] = useState([]);
+  const [viewMode, setViewMode] = useState('pending'); // 'pending' or 'all'
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -19,20 +28,23 @@ export default function AdminPanel() {
       navigate('/');
       return;
     }
-    loadPendingPosts(page);
-  }, [page, user, navigate]);
+    loadPosts(page);
+  }, [page, user, navigate, viewMode]);
 
-  async function loadPendingPosts(p) {
+  async function loadPosts(p) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchPendingPosts(p);
+      const res = viewMode === 'pending' 
+        ? await fetchPendingPosts(p)
+        : await fetchAllPosts(p);
       setPosts(res.data.posts);
       setPage(res.data.page);
       setPages(res.data.pages);
+      setSelectedPosts([]); // Clear selection when posts change
     } catch (err) {
-      console.error('Error fetching pending posts', err);
-      setError('Failed to load pending posts. Please try again later.');
+      console.error('Error fetching posts', err);
+      setError('Failed to load posts. Please try again later.');
     } finally {
       setLoading(false);
     }
@@ -41,7 +53,7 @@ export default function AdminPanel() {
   const handleApprove = async (id) => {
     try {
       await approvePost(id);
-      loadPendingPosts(page);
+      loadPosts(page);
     } catch (err) {
       console.error('Approve failed', err);
       setError('Failed to approve post. Please try again.');
@@ -51,10 +63,46 @@ export default function AdminPanel() {
   const handleReject = async (id) => {
     try {
       await rejectPost(id);
-      loadPendingPosts(page);
+      loadPosts(page);
     } catch (err) {
       console.error('Reject failed', err);
       setError('Failed to reject post. Please try again.');
+    }
+  };
+
+  const handleSelectPost = (postId) => {
+    setSelectedPosts(prev => 
+      prev.includes(postId) 
+        ? prev.filter(id => id !== postId) 
+        : [...prev, postId]
+    );
+  };
+
+  const handleBulkApprove = async () => {
+    try {
+      await bulkApprovePosts(selectedPosts);
+      loadPosts(page);
+    } catch (err) {
+      console.error('Bulk approve failed', err);
+      setError('Failed to approve selected posts. Please try again.');
+    }
+  };
+
+  const handleBulkReject = async () => {
+    try {
+      await bulkRejectPosts(selectedPosts);
+      loadPosts(page);
+    } catch (err) {
+      console.error('Bulk reject failed', err);
+      setError('Failed to reject selected posts. Please try again.');
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedPosts.length === posts.length) {
+      setSelectedPosts([]);
+    } else {
+      setSelectedPosts(posts.map(post => post._id));
     }
   };
 
@@ -65,7 +113,21 @@ export default function AdminPanel() {
   return (
     <div className="admin-panel">
       <header className="panel-header">
-        <h1><i className="fas fa-shield-alt"></i> Admin Panel - Pending Posts</h1>
+        <h1><i className="fas fa-shield-alt"></i> Admin Panel - {viewMode === 'pending' ? 'Pending' : 'All'} Posts</h1>
+        <div className="view-mode-toggle">
+          <button
+            className={`toggle-btn ${viewMode === 'pending' ? 'active' : ''}`}
+            onClick={() => setViewMode('pending')}
+          >
+            Pending
+          </button>
+          <button
+            className={`toggle-btn ${viewMode === 'all' ? 'active' : ''}`}
+            onClick={() => setViewMode('all')}
+          >
+            All Posts
+          </button>
+        </div>
       </header>
 
       <main className="panel-content">
@@ -84,13 +146,42 @@ export default function AdminPanel() {
         {posts.length === 0 && !loading ? (
           <div className="empty-state">
             <i className="fas fa-inbox"></i>
-            <p>No pending posts to review</p>
+            <p>No {viewMode === 'pending' ? 'pending' : ''} posts to display</p>
           </div>
         ) : (
           <>
+            {selectedPosts.length > 0 && (
+              <div className="bulk-actions-bar">
+                <span className="selected-count">
+                  {selectedPosts.length} post{selectedPosts.length !== 1 ? 's' : ''} selected
+                </span>
+                <button 
+                  className="bulk-approve-btn"
+                  onClick={handleBulkApprove}
+                >
+                  <i className="fas fa-check-circle"></i> Approve Selected
+                </button>
+                <button 
+                  className="bulk-reject-btn"
+                  onClick={handleBulkReject}
+                >
+                  <i className="fas fa-times-circle"></i> Reject Selected
+                </button>
+              </div>
+            )}
+
             <div className="posts-list">
               {posts.map(post => (
                 <article key={post._id} className="post-card">
+                  <div className="post-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={selectedPosts.includes(post._id)}
+                      onChange={() => handleSelectPost(post._id)}
+                      id={`select-${post._id}`}
+                    />
+                    <label htmlFor={`select-${post._id}`}></label>
+                  </div>
                   <div className="post-content">
                     <h3>{post.title}</h3>
                     <p className="post-excerpt">{post.content.substring(0, 200)}...</p>
@@ -101,20 +192,29 @@ export default function AdminPanel() {
                       <span className="meta-author">
                         <i className="fas fa-user"></i> {post.author?.username || 'Unknown'}
                       </span>
+                      {viewMode === 'all' && (
+                        <span className={`meta-status ${post.status}`}>
+                          <i className={`fas ${
+                            post.status === 'approved' ? 'fa-check-circle' : 'fa-clock'
+                          }`}></i> {post.status}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="post-actions">
-                    <button 
-                      className="approve-btn"
-                      onClick={() => handleApprove(post._id)}
-                    >
-                      <i className="fas fa-check-circle"></i> Approve
-                    </button>
+                    {post.status !== 'approved' && (
+                      <button 
+                        className="approve-btn"
+                        onClick={() => handleApprove(post._id)}
+                      >
+                        <i className="fas fa-check-circle"></i> Approve
+                      </button>
+                    )}
                     <button 
                       className="reject-btn"
                       onClick={() => handleReject(post._id)}
                     >
-                      <i className="fas fa-times-circle"></i> Reject
+                      <i className="fas fa-times-circle"></i> {post.status === 'approved' ? 'Delete' : 'Reject'}
                     </button>
                   </div>
                 </article>

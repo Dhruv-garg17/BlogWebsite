@@ -134,7 +134,7 @@ function Home() {
         </div>
       ) : 
       
-      {/* Posts Grid */}
+      
       (
         <main className="posts-container">
           <div className="posts-grid">
